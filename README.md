@@ -2,6 +2,12 @@
 
 A comprehensive Discord bot for running ZAO Fractal — a fractal democracy system where small groups present their contributions, reach consensus on rankings through structured voting, and earn onchain Respect tokens on Optimism.
 
+## Changelog
+
+### v2.2 — April 2026
+- **Timer auto-resets to bottom of chat** — When advancing to a new speaker, the timer embed is deleted and resent at the bottom of the channel so it never gets buried by chat messages. Controls stay visible and accessible at all times.
+- Carried forward all v2.1 features (auto-submit onchain, Farcaster linking, Snapshot polls)
+
 Based on the [Respect Game](https://edenfractal.com/fractal-decision-making-processes) pioneered by Eden Fractal and Optimism Fractal.
 
 ## What It Does
@@ -50,6 +56,7 @@ Here's the complete flow for running a weekly ZAO Fractal meeting from start to 
      - **Pick Next** — Dropdown to reorder the queue
    - **Reactions**: Fire, Clap — stackable counters displayed live on the embed
    - **Time warnings** at 1 minute and 30 seconds (embed turns red, speaker pinged)
+   - **Auto-reset**: When advancing to a new speaker, the timer deletes the old embed and resends at the bottom of chat — no more scrolling up to find the controls
 6. When all speakers finish, embed updates to "Presentations Complete — Ready to start voting!"
 
 ### Phase 4: Fractal Voting (Each Group)

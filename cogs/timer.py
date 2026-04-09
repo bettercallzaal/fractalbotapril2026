@@ -264,6 +264,25 @@ class PresentationTimer:
                     content=content, embed=embed, view=view
                 )
 
+    async def _resend_message(self, status: str = "speaking", content: str = None):
+        """Delete the old timer message and send a fresh one at the bottom of chat.
+
+        This ensures the timer embed stays visible at the bottom when
+        advancing to a new speaker, rather than getting buried by chat messages.
+        """
+        embed = self._build_embed(status)
+        view = TimerControlView(self)
+        # Delete old message so it doesn't linger in chat history
+        if self.message:
+            try:
+                await self.message.delete()
+            except (discord.NotFound, discord.HTTPException):
+                pass
+        # Send a fresh message at the bottom of the channel
+        self.message = await self.channel.send(
+            content=content, embed=embed, view=view
+        )
+
     def _start_countdown(self):
         """Cancel any existing countdown task and start a fresh one.
 
@@ -494,14 +513,15 @@ class PresentationTimer:
                 comeback = self.skipped.pop(0)
                 self.speakers.append(comeback)
             else:
-                # All speakers done — show completion embed and stop
+                # All speakers done — delete old timer and send completion at bottom
                 embed = self._build_embed("done")
                 view = discord.ui.View()  # Empty view removes all buttons
                 if self.message:
                     try:
-                        await self.message.edit(embed=embed, view=view, content=None)
-                    except discord.NotFound:
+                        await self.message.delete()
+                    except (discord.NotFound, discord.HTTPException):
                         pass
+                self.message = await self.channel.send(embed=embed, view=view)
                 await self.channel.send("\u2705 **All presentations complete!** Ready to begin voting.")
                 self.stopped = True
                 return
@@ -510,9 +530,10 @@ class PresentationTimer:
         self.end_timestamp = int(time.time()) + (self.minutes * 60)
         self.paused = False
 
-        # Ping the next speaker with a content message (appears as notification)
+        # Delete old timer message and resend at bottom so it's always visible,
+        # not buried under chat messages from the previous speaker's turn
         content = f"\U0001f399\ufe0f {self.current_speaker.mention}, you're up! You have **{self.minutes} minutes**."
-        await self._update_message("speaking", content)
+        await self._resend_message("speaking", content)
 
         self._start_countdown()
 

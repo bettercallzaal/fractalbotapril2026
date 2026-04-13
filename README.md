@@ -4,6 +4,11 @@ A comprehensive Discord bot for running ZAO Fractal — a fractal democracy syst
 
 ## Changelog
 
+### v2.3 — April 13 2026
+- **Auto-start timer after `/randomize`** — 10 seconds after members are moved into fractal rooms, a 4-minute presentation timer automatically starts in each room with shuffled speaker order and "Meet Your Group" intro previews. No more manually running `/timer` in each room.
+- **Timer overtime race condition fix** — Fixed "this interaction failed" errors when clicking Skip or the dropdown during the 45-second overtime period. Buttons now work reliably during overtime.
+- **Webhook integration to ZAO OS** — Bot now sends fractal events (session start, votes, winners, completion) to the ZAO OS web app via webhook. Set `WEB_WEBHOOK_URL` and `WEBHOOK_SECRET` env vars to connect.
+
 ### v2.2 — April 2026
 - **Timer auto-resets to bottom of chat** — When advancing to a new speaker, the timer embed is deleted and resent at the bottom of the channel so it never gets buried by chat messages. Controls stay visible and accessible at all times.
 - Carried forward all v2.1 features (auto-submit onchain, Farcaster linking, Snapshot polls)
@@ -38,10 +43,11 @@ Here's the complete flow for running a weekly ZAO Fractal meeting from start to 
    - Members are evenly distributed across fractal-1, fractal-2, etc. (max 6 per room)
    - Optional: pre-assign facilitators with `facilitator_1` through `facilitator_6` parameters
    - Bot automatically moves members into their assigned voice rooms via Discord
+   - **After 10 seconds, a presentation timer auto-starts in each room** with shuffled speaker order and intro previews
 
 ### Phase 3: Presentations (Each Group)
 
-4. Facilitator runs **`/timer`** in the group's text channel
+4. The timer starts automatically after `/randomize`, or a facilitator can manually run **`/timer`** in the group's text channel
    - Bot detects all non-bot members in the facilitator's voice channel
    - A rich embed appears with the first speaker's name, a countdown timer, and a "Meet Your Group" section showing 2-line intro previews for each member
    - Members missing intros are @mentioned with a prompt to post one

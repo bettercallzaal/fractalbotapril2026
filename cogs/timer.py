@@ -338,6 +338,10 @@ class PresentationTimer:
                 asyncio.create_task(self._delete_after(warn, 15))
                 # Tight loop during overtime for live updates
                 while not self.is_done:
+                    # If advance() was already called externally (e.g. button click),
+                    # _in_overtime will be False — bail out to avoid double-advance
+                    if not self._in_overtime:
+                        return
                     ot_remaining = self.end_timestamp - int(time.time())
                     if ot_remaining <= 0:
                         await self.advance()
@@ -919,6 +923,87 @@ class TimerCog(BaseCog):
             f"Added **{minutes} min** to {timer.current_speaker.display_name}'s turn.",
             ephemeral=True
         )
+
+
+    async def auto_start_timer(self, channel, members, minutes=4, facilitator=None):
+        """Start a timer programmatically (e.g. after /randomize).
+
+        Args:
+            channel: The channel to post the timer in (can be a VoiceChannel).
+            members: List of discord.Member speakers.
+            minutes: Duration per speaker.
+            facilitator: The facilitator member (defaults to first member).
+
+        Returns:
+            The PresentationTimer instance, or None if a timer is already running.
+        """
+        if channel.id in self.active_timers and not self.active_timers[channel.id].is_done:
+            return None
+
+        timer = PresentationTimer(
+            channel=channel,
+            speakers=list(members),
+            minutes=minutes,
+            facilitator=facilitator or members[0]
+        )
+        self.active_timers[channel.id] = timer
+
+        # Fetch and display intro previews
+        intro_cog = self.bot.get_cog('IntroCog')
+        if intro_cog:
+            try:
+                intro_cache = intro_cog.intro_cache
+                intro_lines = []
+                no_intro = []
+                guild_id = channel.guild.id if hasattr(channel, 'guild') else None
+                for member in members:
+                    intro_data = intro_cache.get(member.id)
+                    if not intro_data:
+                        intros_channel = self.bot.get_channel(INTROS_CHANNEL_ID)
+                        if intros_channel:
+                            async for message in intros_channel.history(limit=None, oldest_first=True):
+                                if message.author.id == member.id and message.content.strip():
+                                    intro_cache.set(
+                                        member.id, message.content,
+                                        message.id, message.created_at.isoformat()
+                                    )
+                                    intro_data = intro_cache.get(member.id)
+                                    break
+                    if not intro_data:
+                        no_intro.append(member)
+                        continue
+                    text_lines = intro_data['text'].strip().split('\n')
+                    preview = ' '.join(text_lines[:2]).strip()
+                    if len(preview) > 150:
+                        preview = preview[:147] + "..."
+                    msg_id = intro_data.get('message_id')
+                    if msg_id and guild_id:
+                        link = f"https://discord.com/channels/{guild_id}/{INTROS_CHANNEL_ID}/{msg_id}"
+                        intro_lines.append(f"\u2022 **{member.display_name}** \u2014 {preview} [read more]({link})")
+                    else:
+                        intro_lines.append(f"\u2022 **{member.display_name}** \u2014 {preview}")
+
+                if intro_lines or no_intro:
+                    intro_embed = discord.Embed(
+                        title="\U0001f44b Meet Your Group",
+                        color=0x5865F2
+                    )
+                    if intro_lines:
+                        intro_embed.description = "\n\n".join(intro_lines)
+                    if no_intro:
+                        mentions = " ".join(m.mention for m in no_intro)
+                        intro_embed.add_field(
+                            name="\U0001f4ad Missing Intros",
+                            value=f"{mentions}\nPost your intro in <#{INTROS_CHANNEL_ID}> so your group can get to know you!",
+                            inline=False
+                        )
+                    intro_embed.set_footer(text="ZAO Fractal \u2022 zao.frapps.xyz")
+                    await channel.send(embed=intro_embed)
+            except Exception as e:
+                self.logger.error(f"Error loading intros: {e}", exc_info=True)
+
+        await timer.start()
+        return timer
 
 
 async def setup(bot):

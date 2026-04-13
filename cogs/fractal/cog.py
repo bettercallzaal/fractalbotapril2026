@@ -21,6 +21,7 @@ from discord.ext import commands
 import logging
 import random
 import math
+import asyncio
 from datetime import datetime
 from ..base import BaseCog
 from .views import MemberConfirmationView
@@ -312,6 +313,31 @@ class FractalCog(BaseCog):
                 msg += f"\n• {member.display_name}: {error}"
 
         await interaction.followup.send(msg, ephemeral=True)
+
+        # Auto-start presentation timers in each fractal room after 10 seconds
+        timer_cog = self.bot.get_cog('TimerCog')
+        if timer_cog:
+            async def _auto_start_timers():
+                await asyncio.sleep(10)
+                for group_idx, group_members in enumerate(groups):
+                    if len(group_members) < 2:
+                        continue
+                    room = fractal_rooms[group_idx]
+                    fac = group_facilitators.get(group_idx, group_members[0])
+                    # Shuffle speaker order so facilitator isn't always first
+                    speakers = list(group_members)
+                    random.shuffle(speakers)
+                    try:
+                        await timer_cog.auto_start_timer(
+                            channel=room,
+                            members=speakers,
+                            minutes=4,
+                            facilitator=fac
+                        )
+                        self.logger.info(f"Auto-started timer in {room.name} with {len(speakers)} speakers")
+                    except Exception as e:
+                        self.logger.error(f"Failed to auto-start timer in {room.name}: {e}", exc_info=True)
+            asyncio.create_task(_auto_start_timers())
 
     @app_commands.command(
         name="endgroup",

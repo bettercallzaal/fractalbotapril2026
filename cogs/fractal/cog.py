@@ -61,14 +61,38 @@ class FractalCog(BaseCog):
         name="zaofractal",
         description="Create a new ZAO fractal voting group from your current voice channel"
     )
-    @app_commands.describe(name="Custom name for this fractal group (optional)")
-    async def zaofractal(self, interaction: discord.Interaction, name: str = None):
-        """Start the fractal creation flow for the invoking user's voice channel.
+    @app_commands.describe(
+        name="Custom name for this fractal group (optional)",
+        member_1="Add a member manually (instead of voice channel)",
+        member_2="Add a member manually",
+        member_3="Add a member manually",
+        member_4="Add a member manually",
+        member_5="Add a member manually",
+        member_6="Add a member manually",
+    )
+    async def zaofractal(
+        self,
+        interaction: discord.Interaction,
+        name: str = None,
+        member_1: discord.Member = None,
+        member_2: discord.Member = None,
+        member_3: discord.Member = None,
+        member_4: discord.Member = None,
+        member_5: discord.Member = None,
+        member_6: discord.Member = None,
+    ):
+        """Start the fractal creation flow.
+
+        Members can be sourced two ways:
+        1. **Voice channel (default)** — pulls all non-bot members from the
+           caller's current voice channel.
+        2. **Manual list** — if any member_1..member_6 params are provided,
+           those members are used instead of the voice channel. The caller
+           is automatically included.
 
         Steps:
-        1. Verify the caller is in a voice channel (via BaseCog helper).
-        2. Look up each voice-channel member's wallet and intro status so the
-           facilitator can see who is ready before confirming.
+        1. Collect members (voice channel or manual list).
+        2. Look up each member's wallet and intro status.
         3. Present a MemberConfirmationView with Start / Modify buttons.
 
         The actual fractal session is not created here -- it is created in
@@ -85,17 +109,40 @@ class FractalCog(BaseCog):
         except discord.InteractionResponded:
             pass
 
-        # Ensure the caller is in a voice channel and collect its members
-        voice_check = await self.check_voice_state(interaction.user)
-        if not voice_check['success']:
-            try:
-                await interaction.followup.send(voice_check['message'], ephemeral=True)
-            except (discord.NotFound, discord.HTTPException) as e:
-                self.logger.warning(f"Followup failed, falling back to channel send: {e}")
-                await interaction.channel.send(f"{interaction.user.mention} {voice_check['message']}")
-            return
+        # Check if members were manually specified
+        manual_members = [m for m in [member_1, member_2, member_3, member_4, member_5, member_6] if m is not None]
 
-        members = voice_check['members']
+        if manual_members:
+            # Manual mode: use the provided members, auto-include the caller
+            members = list(manual_members)
+            if interaction.user not in members:
+                members.insert(0, interaction.user)
+            # Deduplicate while preserving order
+            seen = set()
+            unique_members = []
+            for m in members:
+                if m.id not in seen:
+                    seen.add(m.id)
+                    unique_members.append(m)
+            members = unique_members
+
+            if len(members) < 2:
+                await interaction.followup.send("❌ Need at least 2 members to start a fractal.", ephemeral=True)
+                return
+            if len(members) > 6:
+                await interaction.followup.send("❌ Maximum 6 members per fractal group.", ephemeral=True)
+                return
+        else:
+            # Voice channel mode: pull members from caller's voice channel
+            voice_check = await self.check_voice_state(interaction.user)
+            if not voice_check['success']:
+                try:
+                    await interaction.followup.send(voice_check['message'], ephemeral=True)
+                except (discord.NotFound, discord.HTTPException) as e:
+                    self.logger.warning(f"Followup failed, falling back to channel send: {e}")
+                    await interaction.channel.send(f"{interaction.user.mention} {voice_check['message']}")
+                return
+            members = voice_check['members']
 
         custom_name = name
 

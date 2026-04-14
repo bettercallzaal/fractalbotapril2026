@@ -5,6 +5,7 @@ A comprehensive Discord bot for running ZAO Fractal — a fractal democracy syst
 ## Changelog
 
 ### v2.3 — April 13 2026
+- **Manual member selection for `/zaofractal`** — You can now specify members directly with `member_1` through `member_6` parameters instead of requiring everyone to be in a voice channel. The caller is auto-included. Falls back to voice channel detection if no members are specified.
 - **Auto-start timer after `/randomize`** — 10 seconds after members are moved into fractal rooms, a 4-minute presentation timer automatically starts in each room with shuffled speaker order and "Meet Your Group" intro previews. No more manually running `/timer` in each room.
 - **Timer overtime race condition fix** — Fixed "this interaction failed" errors when clicking Skip or the dropdown during the 45-second overtime period. Buttons now work reliably during overtime.
 - **Webhook integration to ZAO OS** — Bot now sends fractal events (session start, votes, winners, completion) to the ZAO OS web app via webhook. Set `WEB_WEBHOOK_URL` and `WEBHOOK_SECRET` env vars to connect.
@@ -68,6 +69,9 @@ Here's the complete flow for running a weekly ZAO Fractal meeting from start to 
 ### Phase 4: Fractal Voting (Each Group)
 
 7. Facilitator runs **`/zaofractal`** to create the voting session
+   - **Two ways to add members:**
+     - **Voice channel (default)** — Bot auto-detects everyone in the facilitator's voice channel
+     - **Manual** — Specify `member_1` through `member_6` to add members by name (you're auto-included)
    - Bot shows a confirmation embed with all members, their wallet status, and intro status
    - Facilitator clicks **Start Fractal** and enters the fractal number and group number in a popup modal
    - Bot creates a dedicated thread (e.g. "Fractal 5 - Group 2") and adds all members
@@ -109,7 +113,7 @@ Here's the complete flow for running a weekly ZAO Fractal meeting from start to 
 
 | Command | Description |
 |---------|-------------|
-| `/zaofractal [name]` | Start a fractal from your voice channel. Optional custom name. |
+| `/zaofractal [name] [member_1..6]` | Start a fractal. Auto-detects voice channel members, or specify members manually. |
 | `/endgroup` | End your fractal (facilitator only) |
 | `/status` | Check fractal status (use in fractal thread) |
 | `/groupwallets` | Show wallet addresses for all group members |
@@ -431,8 +435,8 @@ npm run dev
 |----------|----------|-------------|
 | `DISCORD_TOKEN` | Yes | Discord bot token |
 | `DEBUG` | No | Set to `TRUE` for verbose logging |
-| `WEB_WEBHOOK_URL` | No | Webhook URL for web dashboard |
-| `WEBHOOK_SECRET` | No | Secret for webhook auth |
+| `WEB_WEBHOOK_URL` | For ZAO OS | Webhook endpoint for sending fractal events to ZAO OS (e.g. `https://zaoos.com/api/fractals/webhook`) |
+| `WEBHOOK_SECRET` | For ZAO OS | Shared secret for webhook auth — must match `FRACTAL_BOT_WEBHOOK_SECRET` on the Vercel/ZAO OS side |
 | `ALCHEMY_OPTIMISM_RPC` | For leaderboard | Alchemy RPC URL for Optimism |
 | `DISCORD_CLIENT_ID` | For web auth | Discord OAuth client ID |
 | `DISCORD_CLIENT_SECRET` | For web auth | Discord OAuth client secret |

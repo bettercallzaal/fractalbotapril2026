@@ -104,3 +104,11 @@ OPTIMISM_RPC_URL = os.getenv(
     'OPTIMISM_RPC_URL',
     os.getenv('ALCHEMY_OPTIMISM_RPC', 'https://mainnet.optimism.io')
 )
+
+# ---------------------------------------------------------------------------
+# Level 6 Winner Role
+# ---------------------------------------------------------------------------
+# Discord role auto-assigned to the Level 6 (rank 1, top Respect earner) of
+# each completed fractal group. Unset by default so this is opt-in per guild;
+# set to the role's snowflake ID to enable tagging.
+LEVEL_6_ROLE_ID = int(os.getenv('LEVEL_6_ROLE_ID')) if os.getenv('LEVEL_6_ROLE_ID') else None

@@ -153,6 +153,7 @@ Here's the complete flow for running a weekly ZAO Fractal meeting from start to 
 | `/admin_end_fractal [thread_id]` | Force end any fractal |
 | `/admin_list_fractals` | List all active fractals |
 | `/admin_cleanup` | Clean up stuck/old fractals |
+| `/admin_reset_waiting_room` | Move everyone from fractal-N breakout rooms back into the Fractal Waiting Room (undo a `/randomize`, or clear leftovers before the next session) |
 | `/admin_force_round <thread_id>` | Skip voting, advance to next round |
 | `/admin_reset_votes <thread_id>` | Clear all votes in current round |
 | `/admin_declare_winner <thread_id> <user>` | Manually declare a round winner |
@@ -442,6 +443,7 @@ npm run dev
 | `DISCORD_CLIENT_SECRET` | For web auth | Discord OAuth client secret |
 | `NEXTAUTH_SECRET` | For web auth | NextAuth session secret |
 | `DATABASE_URL` | For web dashboard | Neon Postgres connection string |
+| `LEVEL_6_ROLE_ID` | No | Discord role ID auto-assigned to each fractal's Level 6 (rank 1) winner. Unset = no role tagging. |
 
 ## Onchain Integration
 

@@ -457,6 +457,10 @@ class FractalGroup:
 
         await self.thread.send(results_text)
 
+        # Tag the Level 6 winner (rank 1) with the configured Discord role,
+        # if one is set for this guild. Opt-in via LEVEL_6_ROLE_ID env var.
+        await self._assign_level_6_role(final_ranking)
+
         # Generate onchain submit breakout link
         await self._post_submit_breakout(final_ranking)
 
@@ -595,6 +599,30 @@ class FractalGroup:
             del self.cog.active_groups[self.thread.id]
 
         self.logger.info(f"Fractal group '{self.thread.name}' completed")
+
+    async def _assign_level_6_role(self, final_ranking):
+        """Assign the configured Level 6 Discord role to this fractal's rank-1 winner.
+
+        No-op if ``LEVEL_6_ROLE_ID`` isn't set for this guild, if the role
+        doesn't exist, or if there's no winner (empty ranking). Failures are
+        logged but never block the rest of ``end_fractal()``.
+        """
+        from config.config import LEVEL_6_ROLE_ID
+
+        if not LEVEL_6_ROLE_ID or not final_ranking:
+            return
+
+        winner = final_ranking[0]
+        role = self.thread.guild.get_role(LEVEL_6_ROLE_ID)
+        if not role:
+            self.logger.warning(f"LEVEL_6_ROLE_ID {LEVEL_6_ROLE_ID} not found in guild {self.thread.guild.id}")
+            return
+
+        try:
+            await winner.add_roles(role, reason="ZAO Fractal: Level 6 winner")
+            self.logger.info(f"Assigned Level 6 role to {winner.display_name} ({winner.id})")
+        except discord.HTTPException as e:
+            self.logger.error(f"Failed to assign Level 6 role to {winner.display_name}: {e}")
 
     async def _post_submit_breakout(self, final_ranking):
         """Submit breakout results onchain (auto-sign) or post a manual link.

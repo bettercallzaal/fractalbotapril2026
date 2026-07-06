@@ -16,11 +16,16 @@ Key components:
     - ProposalVoteView / GovernanceVoteView: Persistent Discord UI button views that
       survive bot restarts by encoding the proposal ID into each button's custom_id.
     - ProposalsCog: The discord.py cog that wires everything together, including slash
-      commands (/propose, /curate, /proposals, /proposal, admin commands), background
+      commands (/propose, /proposals, /proposal, admin commands), background
       tasks for automatic 7-day expiry, startup catch-up expiry, and button migration.
 
+    Note: the 'curate' proposal type (Artizen Fund project curation) is retired -
+    there is no longer a command that creates new curate proposals. TYPE_EMOJIS,
+    TYPE_LABELS, and admin_recover_proposals still recognize it so the 23 historical
+    Artizen curation proposals continue to display and can still be recovered.
+
 Proposal lifecycle:
-    1. A user runs /propose or /curate, which creates a thread in the proposals channel,
+    1. A user runs /propose, which creates a thread in the proposals channel,
        stores the proposal as "active", and posts an embed with voting buttons.
     2. Members click voting buttons; votes are recorded with Respect-weighted values.
        The embed is updated live after each vote to reflect the current tally.
@@ -114,54 +119,6 @@ async def _get_vote_weight(bot, user: discord.User) -> float:
         return 0.0
 
     return await _get_cached_respect(wallet)
-
-
-async def _scrape_og_tags(url: str) -> dict:
-    """Best-effort scrape of Open Graph meta tags from a URL.
-
-    Fetches the page HTML (with a 5-second timeout) and uses regex to extract
-    ``og:title``, ``og:description``, and ``og:image`` meta tag values. These
-    are used by the /curate command to auto-populate proposal metadata when the
-    user provides a project URL instead of a name.
-
-    Handles both common attribute orderings for ``<meta>`` tags:
-        - ``<meta property="og:title" content="...">``
-        - ``<meta content="..." property="og:title">``
-
-    Args:
-        url: The URL to fetch and scrape.
-
-    Returns:
-        A dict with any found keys ('title', 'description', 'image') mapped
-        to their unescaped string values. Returns an empty dict on any error.
-    """
-    result = {}
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, timeout=aiohttp.ClientTimeout(total=5),
-                                   headers={'User-Agent': 'Mozilla/5.0 (compatible; ZAOBot/1.0)'}) as resp:
-                if resp.status != 200:
-                    return result
-                page_html = await resp.text()
-                # Extract each OG tag we care about via regex (avoids a full HTML parser dependency)
-                for tag in ['title', 'description', 'image']:
-                    # Try standard attribute order: property/name first, then content
-                    match = re.search(
-                        rf'<meta\s+(?:property|name)=["\']og:{tag}["\']\s+content=["\']([^"\']+)["\']',
-                        page_html, re.IGNORECASE
-                    )
-                    if not match:
-                        # Some sites put content before property -- try reversed order
-                        match = re.search(
-                            rf'<meta\s+content=["\']([^"\']+)["\']\s+(?:property|name)=["\']og:{tag}["\']',
-                            page_html, re.IGNORECASE
-                        )
-                    if match:
-                        # Unescape HTML entities like &amp; in the extracted value
-                        result[tag] = html.unescape(match.group(1))
-    except Exception as e:
-        logging.getLogger('bot.proposals').error(f"Error scraping OG tags from {url}: {e}")
-    return result
 
 
 class ProposalStore:
@@ -894,7 +851,7 @@ class GovernanceOptionsModal(discord.ui.Modal, title="Governance Proposal Option
 class ProposalsCog(BaseCog):
     """Discord cog implementing the full proposal lifecycle with Respect-weighted voting.
 
-    Provides slash commands for creating proposals (/propose, /curate), listing
+    Provides slash commands for creating proposals (/propose), listing
     them (/proposals), viewing details (/proposal), and admin management
     (close, delete, reopen, recover). Manages three background tasks for
     automatic expiry, startup catch-up, and button migration. Extends BaseCog
@@ -1196,71 +1153,13 @@ class ProposalsCog(BaseCog):
             interaction, title, description, ptype, funding_amount=amount
         )
 
-    @app_commands.command(
-        name="curate",
-        description="Nominate a project for the ZAO Fund \u2014 creates a Respect-weighted yes/no vote"
-    )
-    @app_commands.describe(
-        project="Project name or Artizen Fund URL",
-        description="Why should the ZAO fund this? (optional)",
-        image="Image URL for the project thumbnail (optional)"
-    )
-    async def curate(self, interaction: discord.Interaction, project: str,
-                     description: str = None, image: str = None):
-        """Quick-create a yes/no curation vote for a project.
-
-        If the project argument is a URL (especially an Artizen Fund URL), the
-        command will attempt to extract the project name from the URL slug and
-        scrape Open Graph meta tags for title, description, and image. This
-        auto-enrichment makes it easy to propose a project with minimal input.
-        """
-        await interaction.response.defer()
-
-        project_name = project
-        project_url = None
-        image_url = image
-
-        if 'artizen.fund' in project or project.startswith('http'):
-            project_url = project
-            # Try to extract a human-readable name from the last URL path segment
-            slug_match = re.search(r'/([^/?#]+?)(?:\?|#|$)', project.rstrip('/'))
-            if slug_match:
-                slug = slug_match.group(1)
-                # Skip generic route segments that aren't meaningful project names
-                if slug not in ('index', 'p', 'mf', 'project') and len(slug) > 2:
-                    project_name = slug.replace('-', ' ').replace('_', ' ').title()
-
-            # Best-effort OG tag scrape: prefer scraped metadata over slug-derived name
-            scraped = await _scrape_og_tags(project_url)
-            if scraped.get('title'):
-                project_name = scraped['title']
-            if scraped.get('description') and not description:
-                description = scraped['description']
-            if scraped.get('image') and not image_url:
-                image_url = scraped['image']
-
-        # Build the curation proposal title and description with a standard format
-        title = f"Curate: {project_name}"
-        desc_parts = ["**Should the ZAO fund this project?**\n"]
-        desc_parts.append(f"**Project:** {project_name}")
-        if project_url:
-            desc_parts.append(f"**Link:** [View Project]({project_url})")
-        if description:
-            desc_parts.append(f"\n{description}")
-        desc_parts.append("\nVote **Yes** to include or **No** to pass.")
-
-        await self._create_proposal(
-            interaction, title, "\n".join(desc_parts), 'curate',
-            image_url=image_url, project_url=project_url
-        )
-
     async def _create_proposal(self, interaction: discord.Interaction,
                                 title: str, description: str, ptype: str,
                                 options: list[str] | None = None,
                                 funding_amount: float | None = None,
                                 image_url: str | None = None,
                                 project_url: str | None = None):
-        """Internal method shared by /propose, /curate, and GovernanceOptionsModal.
+        """Internal method shared by /propose and GovernanceOptionsModal.
 
         This orchestrates the full proposal creation flow:
         1. Create a public thread in the proposals channel.

@@ -387,6 +387,72 @@ class FractalCog(BaseCog):
             asyncio.create_task(_auto_start_timers())
 
     @app_commands.command(
+        name="admin_reset_waiting_room",
+        description="[ADMIN] Move everyone from fractal-N breakout rooms back into the Fractal Waiting Room"
+    )
+    async def admin_reset_waiting_room(self, interaction: discord.Interaction):
+        """Undo a `/randomize` distribution or clear stale members before the next session.
+
+        Finds every voice channel named ``fractal-N`` and moves any remaining
+        human members back into the "Fractal Waiting Room" channel. This is
+        the complement to `/randomize` - run it after a session wraps (or to
+        abort a bad randomize) so the waiting room and breakout rooms are
+        clean before the next weekly Fractal.
+        """
+        await interaction.response.defer(ephemeral=True)
+
+        if not self.is_supreme_admin(interaction.user):
+            await interaction.followup.send("Error: you need the **Supreme Admin** role to use this command.", ephemeral=True)
+            return
+
+        guild = interaction.guild
+
+        waiting_room = None
+        for channel in guild.voice_channels:
+            if "fractal waiting room" in channel.name.lower():
+                waiting_room = channel
+                break
+
+        if not waiting_room:
+            await interaction.followup.send("Error: could not find a **Fractal Waiting Room** voice channel.", ephemeral=True)
+            return
+
+        breakout_rooms = [
+            channel for channel in guild.voice_channels
+            if channel.name.lower().startswith("fractal-")
+        ]
+
+        moved = []
+        failed_moves = []
+        for room in breakout_rooms:
+            for member in list(room.members):
+                if member.bot:
+                    continue
+                try:
+                    await member.move_to(waiting_room)
+                    moved.append(member)
+                except discord.HTTPException as e:
+                    failed_moves.append((member, str(e)))
+
+        if not moved and not failed_moves:
+            await interaction.followup.send(
+                "All fractal-N rooms are already empty. Nothing to reset.",
+                ephemeral=True
+            )
+            return
+
+        msg = f"Moved {len(moved)} member(s) back into **{waiting_room.name}**."
+        if moved:
+            msg += "\n" + ", ".join(m.display_name for m in moved)
+
+        if failed_moves:
+            msg += f"\n\nFailed to move {len(failed_moves)} member(s):"
+            for member, error in failed_moves:
+                msg += f"\n- {member.display_name}: {error}"
+
+        await interaction.followup.send(msg, ephemeral=True)
+
+    @app_commands.command(
         name="endgroup",
         description="End an active fractal group (facilitator only)"
     )

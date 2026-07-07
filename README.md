@@ -122,7 +122,6 @@ Here's the complete flow for running a weekly ZAO Fractal meeting from start to 
 | `/guide` | Learn how ZAO Fractal works (with link to full web guide) |
 | `/intro <@user>` | Look up a member's introduction from #intros |
 | `/propose <title> <description> [type] [amount]` | Create a proposal for community voting |
-| `/curate <project> [description] [image]` | Nominate a project for the ZAO Fund (yes/no vote) |
 | `/proposals` | List all active proposals |
 | `/proposal <id>` | View details and vote breakdown for a proposal |
 | `/leaderboard` | View top 10 onchain Respect balances inline in Discord |
@@ -194,11 +193,6 @@ Community proposals and project curation with threaded discussion and Respect-we
   - **Text/Funding** — Yes / No / Abstain voting buttons
   - **Governance** — Custom options entered via modal (up to 5 choices)
   - Each proposal gets its own discussion thread in the dedicated #proposals channel
-- **`/curate`** — Quick yes/no vote for project curation (e.g. Artizen Fund projects)
-  - Accepts a project name or URL — auto-extracts name from URL slugs
-  - Optional `description` and `image` parameters for richer embeds
-  - Best-effort Open Graph scraper auto-fills title, description, and thumbnail from project URLs
-  - Clickable embed title links directly to the project page
 - **Thread visibility** — All proposal threads are created in the dedicated #proposals channel so everyone can see and vote
 - **#general notifications** — New proposals post a notification to #general with a clickable link to #proposals
 - **7-day auto-expiry** — Proposals automatically close after 7 days with final results posted to the thread
@@ -600,7 +594,7 @@ npm run dev
 - [ ] **Error alerting** — DM the Supreme Admin or post to an admin channel when background tasks (expiry loop, hat sync) encounter errors
 
 ### v1.7 — Proposals & Governance
-- [ ] **Proposal filtering** — Filter `/proposals` by type (text/governance/funding/curate) and status (active/closed)
+- [ ] **Proposal filtering** — Filter `/proposals` by type (text/governance/funding) and status (active/closed)
 - [ ] **Auto-archive** — Move closed proposals to an archive category after 14 days
 - [ ] **Proposal reminders** — Ping voters 24 hours before a proposal closes if they haven't voted
 - [ ] **Quorum requirements** — Minimum vote count or Respect threshold for a proposal to pass
